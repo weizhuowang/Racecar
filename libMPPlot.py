@@ -27,6 +27,9 @@ def main():
 
     print('Done')
 
+# ======================================================
+# ======================================================
+# ======================================================
 
 def plot():    #Function to create the base plot, make sure to make global the lines, axes, canvas and any part that you would want to update later
 
@@ -53,9 +56,15 @@ def redraw_figure():
     plt.show(block=False)
 #    plt.pause(0.0001)
     
-def update_plot_info(ax,line,xdata,ydata):
+def update_plot_info(ax,line,xlist,ylist):
+    xdata = line.get_xdata(orig=False)
+    xdata = np.append(xdata[len(xlist):],np.array(xlist))
+    ydata = line.get_ydata(orig=False)
+    ydata = np.append(ydata[len(ylist):],np.array(ylist))
+    
     line.set_xdata(xdata)
     line.set_ydata(ydata)
+    
     # adjust limits if new data goes beyond bounds
     ax.set_xlim([np.min(xdata),np.max(xdata)])
     if np.min(ydata)<=line.axes.get_ylim()[0] or np.max(ydata)>=line.axes.get_ylim()[1]:
@@ -63,27 +72,20 @@ def update_plot_info(ax,line,xdata,ydata):
                     
 def updateplot(q):
     try:       #Try to check if there is data in the queue
-#        result=q.get_nowait()
         y1list = []
+        y2list = []
         xlist = []
         for items in range(0, q.qsize()):
             datachuck = q.get_nowait()
-            y1list.append(datachuck[1])
             xlist.append(datachuck[0])
-#            curr_x += 1
+            y1list.append(datachuck[1])
+            y2list.append(datachuck[2])
         print('res',xlist,y1list)
         
         if (y1list[-1] !='Q'):
             if (len(y1list)>0):
-                x_data = line1.get_xdata(orig=False)
-                y1_data = line1.get_ydata(orig=False)
-                x_data = np.append(x_data[len(xlist):],np.array(xlist))
-                y1_data = np.append(y1_data[len(y1list):],np.array(y1list))
-                
-                update_plot_info(ax1,line1,x_data,y1_data)
-                update_plot_info(ax2,line2,x_data,y1_data)
-                
-                # this pauses the data so the figure/axis can catch up - the amount of pause can be altered above
+                update_plot_info(ax1,line1,xlist,y1list)
+                update_plot_info(ax2,line2,xlist,y2list)
                 redraw_figure()
             return 0
         else:
@@ -96,7 +98,7 @@ def updateplot(q):
 
 
 def getdata1(q):
-    iterations = range(500)
+    iterations = range(300)
     for i in iterations:
         rand_val = math.sin(0.5*i) #np.random.randn(1)
         timeval = i
@@ -105,8 +107,8 @@ def getdata1(q):
         #here send any data you want to send to the other process, can be any pickable object
         time.sleep(0.02)
         print(i,rand_val)
-        q.put([timeval,rand_val])
-    q.put(['Q','Q'])
+        q.put([timeval,rand_val,rand_val**2-rand_val])
+    q.put(['Q','Q','Q'])
 
 if __name__ == '__main__':
     main()
