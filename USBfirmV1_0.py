@@ -6,7 +6,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-
+from libMPPlot import updateplot update_plot_info
 import serial
 import Adafruit_PCA9685
 import math
