@@ -22,7 +22,6 @@ def main():
 
     #Create and start the simulation process
     getdata_proc=multiprocessing.Process(target=getdata,args=(q,))
-    
 
     #Create the base plot
     plot()
@@ -68,7 +67,7 @@ def send2PCA(pwm,result):
     pwm.set_pwm(1, 0,GearPWM)
 
 def print_VESC_values(response):
-    _ = os.system('clear') 
+#    _ = os.system('clear') 
     print('==========================')
     print('T_VESC:       ',response.temp_fet_filtered)
 #    print('T_motor:      ',response.temp_motor_filtered)
@@ -116,7 +115,7 @@ def getdata(q):
     ser_ard = serial.Serial(port='/dev/ttyUSB0', baudrate=2000000, dsrdtr=True)
 
     # VESC comm inits
-    ser_vesc = serial.Serial(port='/dev/ttyACM0', baudrate=115200, timeout=0.05)
+    ser_vesc = serial.Serial(port='/dev/ttyACM0', baudrate=2000000, timeout=0.05)
     # Optional: Turn on rotor position reading if an encoder is installed
     ser_vesc.write(pyvesc.encode(SetRotorPositionMode(SetRotorPositionMode.DISP_POS_OFF)))
 
@@ -174,11 +173,11 @@ def getdata(q):
                 cur_t = time.time()-start
                 q.put([cur_t,tau,response.rpm])
                 #### Write to File ####
-                r = response
-                f.write("%f,%f,%f,%f\n" % (cur_t,tau,pmotor,r.rpm))
+                f.write("%f,%f,%f,%f\n" % (cur_t,tau,pmotor,response.rpm))
                 
         toc = time.time()-tic
         print(toc)
+#        f.write("%f\n" % (toc))
 
     # Turn Off the VESC
     # ser_vesc.write(pyvesc.encode(SetCurrent(0)))

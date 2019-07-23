@@ -1,0 +1,4 @@
+todo:
+1. add average to plot (depend on flush speed, but around 10 moving average)
+2. find a faster way to flush screen (with flush 50Hz, without flush 340Hz)
+
