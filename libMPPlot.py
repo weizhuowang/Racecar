@@ -33,7 +33,7 @@ def main():
 
 def plot():    #Function to create the base plot, make sure to make global the lines, axes, canvas and any part that you would want to update later
 
-    global line1,line2,ax1,ax2,fig
+    global line1,line2,ax1,ax2,ax1bg,ax2bg,fig
     size = 50
     x_vec = np.linspace(0,0.0001,size+1)[0:-1]
     y_vec = np.zeros(len(x_vec))
@@ -41,20 +41,45 @@ def plot():    #Function to create the base plot, make sure to make global the l
     plt.ion()
     fig = plt.figure(figsize=(13,6))
     ax1 = fig.add_subplot(121)
+    plt.grid()
     ax2 = fig.add_subplot(122)
+    plt.grid()
     # create a variable for the line so we can later update it
     line1, = ax1.plot(x_vec,y_vec,'-o',alpha=0.8)
     line2, = ax2.plot(x_vec,y_vec,'-o',alpha=0.8)
+    
     #update plot label/title
 #        plt.ylabel('Y Label')
 #        plt.title('Title: {}'.format(identifier))
+
+    # ========== BLIT =========
+    # cache the background
+#    ax1bg = fig.canvas.copy_from_bbox(ax1.bbox)
+#    ax2bg = fig.canvas.copy_from_bbox(ax2.bbox)
+    # =========================
+    
+    
     plt.show()
 
 def redraw_figure():
-    plt.gcf().canvas.flush_events()
-    plt.show(block=False)
-    plt.show(block=False)
-#    plt.pause(0.0001)
+    fig.canvas.flush_events()
+#    plt.show(block=False)
+#    plt.show(block=False)
+
+
+#    # ==========BLIT===========
+#    fig.canvas.restore_region(ax1bg)
+#    fig.canvas.restore_region(ax2bg)
+
+#    # redraw just the points
+#    ax1.draw_artist(line1)
+#    ax2.draw_artist(line2)
+
+#    # fill in the axes rectangle
+#    fig.canvas.blit(ax1.bbox)
+#    fig.canvas.blit(ax2.bbox)
+    
+#    plt.pause(0.00000001)
     
 def update_plot_info(ax,line,xlist,ylist):
     xdata = line.get_xdata(orig=False)
@@ -80,30 +105,30 @@ def updateplot(q):
             xlist.append(datachuck[0])
             y1list.append(datachuck[1])
             y2list.append(datachuck[2])
-        print('res',xlist,y1list)
+#        print('res',xlist,y1list)
         
-        if (y1list[-1] !='Q'):
-            if (len(y1list)>0):
+        if (len(y1list)>0):
+            if (y1list[-1] !='Q'):
                 update_plot_info(ax1,line1,xlist,y1list)
                 update_plot_info(ax2,line2,xlist,y2list)
                 redraw_figure()
-            return 0
+                return 0
+            else:
+                print('done')
+                return 1
         else:
-            print('done')
-            return 1
+            return 0
     except:
 #        print("empty")
-        redraw_figure()
+#        redraw_figure()
         return 0
 
 
 def getdata1(q):
     iterations = range(300)
     for i in iterations:
-        rand_val = math.sin(0.5*i) #np.random.randn(1)
+        rand_val = math.sin(0.1*i) #np.random.randn(1)
         timeval = i
-#        y_vec[-1] = rand_val
-#        y_vec = np.append(y_vec[1:],0.0)
         #here send any data you want to send to the other process, can be any pickable object
         time.sleep(0.02)
         print(i,rand_val)

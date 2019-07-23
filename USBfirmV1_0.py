@@ -13,6 +13,7 @@ import math
 import pyvesc
 import struct
 import os
+import sys
 from pyvesc import GetValues, SetRPM, SetCurrent,SetDutyCycle, SetRotorPositionMode, GetRotorPosition
 
 def main():
@@ -125,16 +126,11 @@ def getdata(q):
     pwm.set_pwm(0, 0,375)
     InRPM = 0
 
-    # plot inits
-    plt.style.use('ggplot')
-    size = 10
-    x_vec = np.linspace(0,1,size+1)[0:-1]
-    y_vec = np.ones(len(x_vec))
-    line1 = []
-
     # misc inits
     pmotor = 0
     tau = 0
+    f = open("res1.txt","w+")
+    f.write("current_time,tau,p_motor,rpm\n")
 #     1104, 1506, 1906 for VESC
     ser_vesc.write(pyvesc.encode(SetRPM(1000)))
 
@@ -166,7 +162,6 @@ def getdata(q):
 
         # Request the current measurement from the vesc
         ser_vesc.write(pyvesc.encode_request(GetValues))
-#        time.sleep(0.01)
         # Check if there is enough data back for a measurement
         if ser_vesc.in_waiting > 71:
             (response, consumed) = pyvesc.decode(ser_vesc.read(ser_vesc.in_waiting))
@@ -175,25 +170,25 @@ def getdata(q):
             if response:
                 pmotor,tau = print_VESC_values(response)
 
-            #### Update plot ####
-                q.put([time.time()-start,tau,response.rpm])
-#            y_vec[-1] = tau
-#            line1 = live_plotter(x_vec,y_vec,line1)
-#            y_vec = np.append(y_vec[1:],0.0)
-
+                #### Update plot ####
+                cur_t = time.time()-start
+                q.put([cur_t,tau,response.rpm])
+                #### Write to File ####
+                r = response
+                f.write("%f,%f,%f,%f\n" % (cur_t,tau,pmotor,r.rpm))
+                
         toc = time.time()-tic
         print(toc)
 
     # Turn Off the VESC
     # ser_vesc.write(pyvesc.encode(SetCurrent(0)))
-    q.put(['Q','Q'])
     # close serial ports
     ser_ard.close()
     ser_vesc.close()
+    # close file
+    f.close() 
     print("serial ports closed")
-    
-    # Let plot stay
-#    plt.show()
+    q.put(['Q','Q','Q'])
 
 
 # ======================================================
