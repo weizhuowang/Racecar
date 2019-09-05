@@ -49,7 +49,10 @@ def set_servo_pulse(channel, pulse):
     pulse *= 1000
     pulse //= pulse_length
     pwm.set_pwm(channel, 0, pulse)
-    
+
+def clamp(n,minn,maxn):
+    return max(min(maxn,n),minn)
+
 def translate(value, leftMin, leftMax, rightMin, rightMax):
     # Figure out how 'wide' each range is
     leftSpan = leftMax - leftMin
@@ -63,11 +66,12 @@ def send2PCA(pwm,result):
     # send out signals to PCA9685
     steerPWM = math.floor(translate(result[0], 1033, 1835 , 262.5, 487.5))
     GearPWM  = math.floor(translate(result[2], 1103, 1906 , 300, 450))
-    pwm.set_pwm(0, 0,steerPWM)
-    pwm.set_pwm(1, 0,GearPWM)
+    pwm.set_pwm(0, 0,clamp(steerPWM,262.5, 487.5))
+    pwm.set_pwm(1, 0,clamp(GearPWM, 300  , 450))
 
 def print_VESC_values(response):
-#    _ = os.system('clear') 
+#    _ = os.system('clear')
+    print(chr(27) + "[2J") 
     print('==========================')
     print('T_VESC:       ',response.temp_fet_filtered)
 #    print('T_motor:      ',response.temp_motor_filtered)
@@ -88,15 +92,16 @@ def print_VESC_values(response):
 #    time.sleep(0.01)
 # =============Calculated values=================
     p_motor = response.input_voltage*response.avg_input_current
-    print('P_motor:      ',p_motor)
-    # print motor voltage
     try:
-        print('V_motor:      ',p_motor/response.avg_motor_current)
+        v_motor = p_motor/response.avg_motor_current
     except:
-        pass
-    # print motor torque
+        v_motor = 0
+    
+    # print calculated stuff
+    print('P_motor:      ',p_motor)
+    print('V_motor:      ',v_motor)
     print('Torque_motor(N*cm):',find_tau(p_motor,response.rpm)*100)
-    return p_motor,find_tau(p_motor,response.rpm)*100
+    return p_motor,find_tau(p_motor,response.rpm)*100,v_motor
 
 def find_tau(p_motor,RPM):
     if RPM != 0:
@@ -129,7 +134,7 @@ def getdata(q):
     pmotor = 0
     tau = 0
     f = open("res1.txt","w+")
-    f.write("current_time,tau,p_motor,rpm\n")
+    f.write("current_time,tau,rpm,I_motor,V_motor,P_motor,\n")
 #     1104, 1506, 1906 for VESC
     ser_vesc.write(pyvesc.encode(SetRPM(1000)))
 
@@ -147,15 +152,25 @@ def getdata(q):
             except:
                 pass
             print(result)
-            InRPM = translate(result[1],1100,1900,-10000,10000)
-            send2PCA(pwm,result)
+            controls = result[:3]
+            dummyControlFlag = result[3]
+            IMUdata = result[4:]
+            InRPM = translate(controls[1],1100,1900,-10000,10000)
+            if dummyControlFlag < 1200:
+                controls[0] = (time.time()-start)/20*200.0*math.sin((time.time()-start)*2)+1435
+            send2PCA(pwm,controls)
             cur_line = data_seg.split('\r')[1]
 
         #### Read/Write data from/to VESC ####
         # Set the ERPM of the VESC motor
         #    Note: ERPM/poles = real RPM, in this case poles = 2
-#        ser_vesc.write(pyvesc.encode(SetRPM(InRPM)))
-        ser_vesc.write(pyvesc.encode(SetDutyCycle(InRPM*10.0)))
+        if dummyControlFlag < 1200:
+            dummyRPM = (time.time()-start)/20*2000.0*math.sin((time.time()-start)*10)+4000
+            ser_vesc.write(pyvesc.encode(SetRPM(dummyRPM)))
+        else:
+            ser_vesc.write(pyvesc.encode(SetDutyCycle(InRPM*10.0)))
+            print(InRPM*10.0)
+
 #        ser_vesc.write(pyvesc.encode(SetDutyCycle(10000.0)))
 #        ser_vesc.write(pyvesc.encode(SetCurrent(2)))
 
@@ -167,13 +182,13 @@ def getdata(q):
 
             # Print out the values
             if response:
-                pmotor,tau = print_VESC_values(response)
+                pmotor,tau,vmotor = print_VESC_values(response)
 
                 #### Update plot ####
                 cur_t = time.time()-start
-                q.put([cur_t,tau,response.rpm])
+                q.put([cur_t,tau,response.rpm,response.avg_motor_current,vmotor])
                 #### Write to File ####
-                f.write("%f,%f,%f,%f\n" % (cur_t,tau,pmotor,response.rpm))
+                f.write("%f,%f,%f,%f,%f,%f\n" % (cur_t,tau,response.rpm,response.avg_motor_current,vmotor,pmotor))
                 
         toc = time.time()-tic
         print(toc)
@@ -187,7 +202,7 @@ def getdata(q):
     # close file
     f.close() 
     print("serial ports closed")
-    q.put(['Q','Q','Q'])
+    q.put(['Q','Q','Q','Q','Q'])
 
 
 # ======================================================

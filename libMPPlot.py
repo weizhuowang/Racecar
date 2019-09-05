@@ -33,20 +33,24 @@ def main():
 
 def plot():    #Function to create the base plot, make sure to make global the lines, axes, canvas and any part that you would want to update later
 
-    global line1,line2,ax1,ax2,ax1bg,ax2bg,fig
+    global line1,line2,line3,line4,ax1,ax2,ax3,fig
     size = 50
     x_vec = np.linspace(0,0.0001,size+1)[0:-1]
     y_vec = np.zeros(len(x_vec))
     # this is the call to matplotlib that allows dynamic plotting
     plt.ion()
     fig = plt.figure(figsize=(13,6))
-    ax1 = fig.add_subplot(121)
+    ax1 = fig.add_subplot(221)
     plt.grid()
-    ax2 = fig.add_subplot(122)
+    ax2 = fig.add_subplot(222)
+    plt.grid()
+    ax3 = fig.add_subplot(223)
     plt.grid()
     # create a variable for the line so we can later update it
     line1, = ax1.plot(x_vec,y_vec,'-o',alpha=0.8)
     line2, = ax2.plot(x_vec,y_vec,'-o',alpha=0.8)
+    line3, = ax3.plot(x_vec,y_vec,'-o',alpha=0.8)
+    line4, = ax3.plot(x_vec,y_vec,'-o',alpha=0.8)
     
     #update plot label/title
 #        plt.ylabel('Y Label')
@@ -81,14 +85,15 @@ def redraw_figure():
     
 #    plt.pause(0.00000001)
     
-def update_plot_info(ax,line,xlist,ylist):
+def update_plot_info(ax,line,xlist,ylist,xlabel='time (s)',ylabel=''):
     xdata = line.get_xdata(orig=False)
     xdata = np.append(xdata[len(xlist):],np.array(xlist))
     ydata = line.get_ydata(orig=False)
     ydata = np.append(ydata[len(ylist):],np.array(ylist))
-    
     line.set_xdata(xdata)
     line.set_ydata(ydata)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
     
     # adjust limits if new data goes beyond bounds
     ax.set_xlim([np.min(xdata),np.max(xdata)])
@@ -97,20 +102,23 @@ def update_plot_info(ax,line,xlist,ylist):
                     
 def updateplot(q):
     try:       #Try to check if there is data in the queue
-        y1list = []
-        y2list = []
-        xlist = []
+        xlist,ylist = [[],[]]
         for items in range(0, q.qsize()):
             datachuck = q.get_nowait()
             xlist.append(datachuck[0])
-            y1list.append(datachuck[1])
-            y2list.append(datachuck[2])
-#        print('res',xlist,y1list)
-        
-        if (len(y1list)>0):
-            if (y1list[-1] !='Q'):
-                update_plot_info(ax1,line1,xlist,y1list)
-                update_plot_info(ax2,line2,xlist,y2list)
+            ylist.append(datachuck[1:])
+            
+        if (len(ylist)>0):
+            ylist = np.array(ylist)
+            if (ylist[-1,-1] !='Q'):
+                ax1.set_ylim([-3,3])
+                update_plot_info(ax1,line1,xlist,ylist[:,0],ylabel='torque (N*cm)')
+                update_plot_info(ax2,line2,xlist,ylist[:,1],ylabel='RPM')
+                update_plot_info(ax3,line3,xlist,ylist[:,2])
+                update_plot_info(ax3,line4,xlist,ylist[:,3],ylabel='Current & Voltage')
+                ax3.set_ylim([-15,15])
+                ax3.legend(['Current (A)','Voltage (V)'],loc='upper right')
+                
                 redraw_figure()
                 return 0
             else:
@@ -132,8 +140,8 @@ def getdata1(q):
         #here send any data you want to send to the other process, can be any pickable object
         time.sleep(0.02)
         print(i,rand_val)
-        q.put([timeval,rand_val,rand_val**2-rand_val])
-    q.put(['Q','Q','Q'])
+        q.put([timeval,rand_val,rand_val**2-rand_val,rand_val,rand_val+2,rand_val**2])
+    q.put(['Q','Q','Q','Q','Q','Q'])
 
 if __name__ == '__main__':
     main()
