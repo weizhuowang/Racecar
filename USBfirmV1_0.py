@@ -134,13 +134,17 @@ def getdata(q):
     # misc inits
     pmotor = 0
     tau = 0
+    result = [1500]*4+[0]*9
+    dummyControlFlag = 1900
+    controls = [0,0,0]
+    
+    # Open result txt to log data
     f = open("./Results/res.txt","w+") # "+str(datetime.datetime.year)+"
     f.write("current_time,tau,rpm,steering PWM,Dutycycle,P_motor,\n")
 #     1104, 1506, 1906 for VESC
     ser_vesc.write(pyvesc.encode(SetRPM(1000)))
 
-    dummyControlFlag = 1900
-    controls = [0,0,0]
+
     while time.time()-start < 20:
         tic = time.time()
         #### Read data from Arduino ####
