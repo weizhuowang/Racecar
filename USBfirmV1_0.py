@@ -14,6 +14,7 @@ import pyvesc
 import struct
 import os
 import sys
+import datetime
 from pyvesc import GetValues, SetRPM, SetCurrent,SetDutyCycle, SetRotorPositionMode, GetRotorPosition
 
 def main():
@@ -133,11 +134,13 @@ def getdata(q):
     # misc inits
     pmotor = 0
     tau = 0
-    f = open("res1.txt","w+")
-    f.write("current_time,tau,rpm,I_motor,V_motor,P_motor,\n")
+    f = open("./Results/res.txt","w+") # "+str(datetime.datetime.year)+"
+    f.write("current_time,tau,rpm,steering PWM,Dutycycle,P_motor,\n")
 #     1104, 1506, 1906 for VESC
     ser_vesc.write(pyvesc.encode(SetRPM(1000)))
 
+    dummyControlFlag = 1900
+    controls = [0,0,0]
     while time.time()-start < 20:
         tic = time.time()
         #### Read data from Arduino ####
@@ -188,7 +191,8 @@ def getdata(q):
                 cur_t = time.time()-start
                 q.put([cur_t,tau,response.rpm,response.avg_motor_current,vmotor])
                 #### Write to File ####
-                f.write("%f,%f,%f,%f,%f,%f\n" % (cur_t,tau,response.rpm,response.avg_motor_current,vmotor,pmotor))
+                steering = controls[0]
+                f.write("%f,%f,%f,%f,%f,%f\n" % (cur_t,tau,response.rpm,steering,InRPM*10.0,pmotor))
                 
         toc = time.time()-tic
         print(toc)
