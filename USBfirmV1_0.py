@@ -17,6 +17,9 @@ import sys
 import datetime
 from pyvesc import GetValues, SetRPM, SetCurrent,SetDutyCycle, SetRotorPositionMode, GetRotorPosition
 
+# =====================================================
+#   Parallel processing main to show realtime plot
+# =====================================================
 def main():
     #Create a queue to share data between process
     q = multiprocessing.Queue()
@@ -37,39 +40,49 @@ def main():
     print('Done')
 
 # ======================================================
-# ======================================================
+#                   Helper functions
 # ======================================================
 
-# Helper function to make setting a servo pulse width simpler.
+# >>>>>>>>>>>>>>>>>
+# To set a servo with PWM signals.
+# >>>>>>>>>>>>>>>>>
 def set_servo_pulse(channel, pulse):
-    pulse_length = 1000000    # 1,000,000 us per second
+    pulse_length   = 1000000    # 1,000,000 us per second
     pulse_length //= 60       # 60 Hz
     print('{0}us per period'.format(pulse_length))
     pulse_length //= 4096     # 12 bits of resolution
     print('{0}us per bit'.format(pulse_length))
-    pulse *= 1000
+    pulse  *= 1000
     pulse //= pulse_length
     pwm.set_pwm(channel, 0, pulse)
 
+# >>>>>>>>>>>>>>>>>
+# Restrain a signal in range minn-maxn
+# >>>>>>>>>>>>>>>>>
 def clamp(n,minn,maxn):
     return max(min(maxn,n),minn)
 
+# >>>>>>>>>>>>>>>>>
+# Scale signal to new range (from leftRange to rightRange)
+# >>>>>>>>>>>>>>>>>
 def translate(value, leftMin, leftMax, rightMin, rightMax):
-    # Figure out how 'wide' each range is
-    leftSpan = leftMax - leftMin
-    rightSpan = rightMax - rightMin
-    # Convert the left range into a 0-1 range (float)
+    leftSpan    = leftMax - leftMin
+    rightSpan   = rightMax - rightMin
     valueScaled = float(value - leftMin) / float(leftSpan)
-    # Convert the 0-1 range into a value in the right range.
     return rightMin + (valueScaled * rightSpan)
 
+# >>>>>>>>>>>>>>>>>
+# Send PWM signals to PWM commander (PCA9685)
+# >>>>>>>>>>>>>>>>>
 def send2PCA(pwm,result):
-    # send out signals to PCA9685
     steerPWM = math.floor(translate(result[0], 1033, 1835 , 262.5, 487.5))
     GearPWM  = math.floor(translate(result[2], 1103, 1906 , 300, 450))
     pwm.set_pwm(0, 0,clamp(steerPWM,262.5, 487.5))
     pwm.set_pwm(1, 0,clamp(GearPWM, 300  , 450))
 
+# >>>>>>>>>>>>>>>>>
+# Decode and print VESC status response
+# >>>>>>>>>>>>>>>>>
 def print_VESC_values(response):
 #    _ = os.system('clear')
     print(chr(27) + "[2J") 
@@ -91,30 +104,38 @@ def print_VESC_values(response):
 #    print('tacho_abs:    ',response.tachometer_abs_value)
 #    print('fault:        ',response.fault)
 #    time.sleep(0.01)
-# =============Calculated values=================
+    # =============Calculated values=================
     p_motor = response.input_voltage*response.avg_input_current
     try:
         v_motor = p_motor/response.avg_motor_current
     except:
         v_motor = 0
-    
     # print calculated stuff
     print('P_motor:      ',p_motor)
     print('V_motor:      ',v_motor)
     print('Torque_motor(N*cm):',find_tau(p_motor,response.rpm)*100)
     return p_motor,find_tau(p_motor,response.rpm)*100,v_motor
 
+# >>>>>>>>>>>>>>>>>
+# Estimate torque exerted by the motor from its status
+# >>>>>>>>>>>>>>>>>
 def find_tau(p_motor,RPM):
     if RPM != 0:
         return p_motor*30/(math.pi*RPM)
     else:
         return 0
 
+# >>>>>>>>>>>>>>>>>
+# TODO:Find motor commands to achieve torque in specific RPM
+# >>>>>>>>>>>>>>>>>
 def achieve_tau(tau,RPM):
     p_motor = tau*math.pi*RPM/30
-#    I
 
+# >>>>>>>>>>>>>>>>>
+# Core of management firmware
+# >>>>>>>>>>>>>>>>>
 def getdata(q):
+    # ==============INITS==================
     # serial port inits
     start = time.time()
     cur_line = ""
@@ -122,7 +143,7 @@ def getdata(q):
 
     # VESC comm inits
     ser_vesc = serial.Serial(port='/dev/ttyACM0', baudrate=2000000, timeout=0.05)
-    # Optional: Turn on rotor position reading if an encoder is installed
+        # Optional: Turn on rotor position reading if an encoder is installed
     ser_vesc.write(pyvesc.encode(SetRotorPositionMode(SetRotorPositionMode.DISP_POS_OFF)))
 
     # i2c inits
@@ -134,87 +155,94 @@ def getdata(q):
     # misc inits
     pmotor = 0
     tau = 0
-    result = [1500]*4+[0]*9
-    dummyControlFlag = 1900
-    controls = [0,0,0]
+    Result_Ard = [1500]*4+[0]*9
+    ControlSwitch = 1900
+    Ctrl_Radio = [0,0,0]
     
-    # Open result txt to log data
+    # Open Result txt to log data
     f = open("./Results/res.txt","w+") # "+str(datetime.datetime.year)+"
+        # Log headers
     f.write("current_time,tau,rpm,steering PWM,Dutycycle,P_motor,\n")
-#     1104, 1506, 1906 for VESC
+        # 1104, 1506, 1906 for VESC
     ser_vesc.write(pyvesc.encode(SetRPM(1000)))
 
-
-    while time.time()-start < 20:
+    # ==============Central Loop==================
+    while time.time()-start < 60:
         tic = time.time()
-        #### Read data from Arduino ####
-        ser_var=ser_ard.read(ser_ard.inWaiting())
+
+        ##### Read Data #####
+        
+        # Read data chuck from Arduino
+        ser_var  = ser_ard.read(ser_ard.inWaiting())
         data_seg = ser_var.decode('utf-8')
         if data_seg.find('\r') == -1:
+            # If chuck is incomplete, keep reading
             cur_line += data_seg
         else:
+            # If chuck is complete, parse chuck
             cur_line += data_seg.split('\r')[0]
             try:
-                result = list(map(float,cur_line.split(',')))
+                Result_Ard = list(map(float,cur_line.split(',')))
             except:
                 pass
-            print(result)
-            controls = result[:3]
-            dummyControlFlag = result[3]
-            IMUdata = result[4:]
-            InRPM = translate(controls[1],1100,1900,-10000,10000)
-            if dummyControlFlag < 1200:
-                controls[0] = (time.time()-start)/20*200.0*math.sin((time.time()-start)*2)+1435
-            send2PCA(pwm,controls)
             cur_line = data_seg.split('\r')[1]
 
-        #### Read/Write data from/to VESC ####
-        # Set the ERPM of the VESC motor
-        #    Note: ERPM/poles = real RPM, in this case poles = 2
-        if dummyControlFlag < 1200:
-            dummyRPM = (time.time()-start)/20*2000.0*math.sin((time.time()-start)*10)+4000
-            ser_vesc.write(pyvesc.encode(SetRPM(dummyRPM)))
-        else:
-            ser_vesc.write(pyvesc.encode(SetDutyCycle(InRPM*10.0)))
-            print(InRPM*10.0)
-
-#        ser_vesc.write(pyvesc.encode(SetDutyCycle(10000.0)))
-#        ser_vesc.write(pyvesc.encode(SetCurrent(2)))
-
-        # Request the current measurement from the vesc
+        # Request the current state from the vesc
         ser_vesc.write(pyvesc.encode_request(GetValues))
         # Check if there is enough data back for a measurement
         if ser_vesc.in_waiting > 71:
             (response, consumed) = pyvesc.decode(ser_vesc.read(ser_vesc.in_waiting))
-
             # Print out the values
             if response:
                 pmotor,tau,vmotor = print_VESC_values(response)
-
                 #### Update plot ####
                 cur_t = time.time()-start
                 q.put([cur_t,tau,response.rpm,response.avg_motor_current,vmotor])
-                #### Write to File ####
-                steering = controls[0]
+                #### Write to log ####
+                steering = Ctrl_Radio[0]
                 f.write("%f,%f,%f,%f,%f,%f\n" % (cur_t,tau,response.rpm,steering,InRPM*10.0,pmotor))
-                
+
+        ##### Understand Data #####
+        Ctrl_Radio    = Result_Ard[:3]
+        ControlSwitch = Result_Ard[3]
+        IMUdata       = Result_Ard[4:]
+        InRPM         = translate(Ctrl_Radio[1],1100,1900,-10000,10000)
+        if ControlSwitch < 1200:
+            Ctrl_Radio[0] = (time.time()-start)/20*200.0*math.sin((time.time()-start)*2)+1435
+            dummyRPM      = (time.time()-start)/20*2000.0*math.sin((time.time()-start)*10)+4000
+
+        ##### Send Commands #####
+        # Set the ERPM of the VESC motor. | Note: ERPM = poles*real_RPM, in this case poles = 2
+        send2PCA(pwm,Ctrl_Radio)
+        # ser_vesc.write(pyvesc.encode(SetDutyCycle(10000.0)))
+        # ser_vesc.write(pyvesc.encode(SetCurrent(2)))
+        if ControlSwitch < 1200:
+            ser_vesc.write(pyvesc.encode(SetRPM(dummyRPM)))
+        else:
+            ser_vesc.write(pyvesc.encode(SetDutyCycle(InRPM*10.0)))
+        
+        # Show time usage for each cycle
         toc = time.time()-tic
         print(toc)
-#        f.write("%f\n" % (toc))
 
-    # Turn Off the VESC
+    # ==============Cleanups==================
+    # Close VESC
     # ser_vesc.write(pyvesc.encode(SetCurrent(0)))
-    # close serial ports
+
+    # Close serial ports
     ser_ard.close()
     ser_vesc.close()
-    # close file
+
+    # Close file
     f.close() 
     print("serial ports closed")
+    
+    # Close parallel queue
     q.put(['Q','Q','Q','Q','Q'])
 
 
 # ======================================================
-# ======================================================
+#                       MISC
 # ======================================================
 
 if __name__ == '__main__':
