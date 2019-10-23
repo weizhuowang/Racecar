@@ -74,6 +74,7 @@ def translate(value, leftMin, leftMax, rightMin, rightMax):
 # >>>>>>>>>>>>>>>>>
 # Send PWM signals to PWM commander (PCA9685)
 # >>>>>>>>>>>>>>>>>
+# TODO: Fix this shit
 def send2PCA(pwm,result):
     steerPWM = math.floor(translate(result[0], 1033, 1835 , 262.5, 487.5))
     GearPWM  = math.floor(translate(result[2], 1103, 1906 , 300, 450))
@@ -160,6 +161,7 @@ def getdata(q):
     Ctrl_Radio = [0,0,0]
     
     # Open Result txt to log data
+    # TODO: Add date time to filename
     f = open("./Results/res.txt","w+") # "+str(datetime.datetime.year)+"
         # Log headers
     f.write("current_time,tau,rpm,steering PWM,Dutycycle,P_motor,\n")
@@ -201,6 +203,7 @@ def getdata(q):
                 #### Write to log ####
                 steering = Ctrl_Radio[0]
                 f.write("%f,%f,%f,%f,%f,%f\n" % (cur_t,tau,response.rpm,steering,InRPM*10.0,pmotor))
+                # TODO: Write absolute time to log file
 
         ##### Understand Data #####
         Ctrl_Radio    = Result_Ard[:3]
