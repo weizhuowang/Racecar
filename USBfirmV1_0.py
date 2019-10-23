@@ -29,7 +29,7 @@ def main():
 
     #Create the base plot
     plot()
-    
+
     getdata_proc.start()
 
     #Call a function to update the plot when there is new data
@@ -85,7 +85,7 @@ def send2PCA(pwm,result):
 # >>>>>>>>>>>>>>>>>
 def print_VESC_values(response):
 #    _ = os.system('clear')
-    print(chr(27) + "[2J") 
+    print(chr(27) + "[2J")
     print('==========================')
     print('T_VESC:       ',response.temp_fet_filtered)
 #    print('T_motor:      ',response.temp_motor_filtered)
@@ -158,9 +158,11 @@ def getdata(q):
     Result_Ard = [1500]*4+[0]*9
     ControlSwitch = 1900
     Ctrl_Radio = [0,0,0]
-    
+
     # Open Result txt to log data
-    f = open("./Results/res.txt","w+") # "+str(datetime.datetime.year)+"
+    now = datetime.datetime.now()
+    currentDateTime = now.strftime("%Y%m%d-%H%M%S")
+    f = open("./Results/"+currentDateTime+".txt","w+") # "+str(datetime.datetime.year)+"
         # Log headers
     f.write("current_time,tau,rpm,steering PWM,Dutycycle,P_motor,\n")
         # 1104, 1506, 1906 for VESC
@@ -171,7 +173,7 @@ def getdata(q):
         tic = time.time()
 
         ##### Read Data #####
-        
+
         # Read data chuck from Arduino
         ser_var  = ser_ard.read(ser_ard.inWaiting())
         data_seg = ser_var.decode('utf-8')
@@ -220,7 +222,7 @@ def getdata(q):
             ser_vesc.write(pyvesc.encode(SetRPM(dummyRPM)))
         else:
             ser_vesc.write(pyvesc.encode(SetDutyCycle(InRPM*10.0)))
-        
+
         # Show time usage for each cycle
         toc = time.time()-tic
         print(toc)
@@ -234,9 +236,9 @@ def getdata(q):
     ser_vesc.close()
 
     # Close file
-    f.close() 
+    f.close()
     print("serial ports closed")
-    
+
     # Close parallel queue
     q.put(['Q','Q','Q','Q','Q'])
 
