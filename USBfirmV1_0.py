@@ -74,12 +74,15 @@ def translate(value, leftMin, leftMax, rightMin, rightMax):
 # >>>>>>>>>>>>>>>>>
 # Send PWM signals to PWM commander (PCA9685)
 # >>>>>>>>>>>>>>>>>
-# TODO: Fix this shit
 def send2PCA(pwm,result):
-    steerPWM = math.floor(translate(result[0], 1033, 1835 , 262.5, 487.5))
-    GearPWM  = math.floor(translate(result[2], 1103, 1906 , 300, 450))
-    pwm.set_pwm(0, 0,clamp(steerPWM,262.5, 487.5))
-    pwm.set_pwm(1, 0,clamp(GearPWM, 300  , 450))
+    # steerPWM = math.floor(translate(result[0], 1033, 1835 , 262.5, 487.5))
+    # GearPWM  = math.floor(translate(result[2], 1103, 1906 , 300, 450))
+    # pwm.set_pwm(0, 0,clamp(steerPWM,262.5, 487.5))
+    # pwm.set_pwm(1, 0,clamp(GearPWM, 300  , 450))
+    steerPWM = math.floor(translate(result[0], 1020, 1850 , 262.5, 487.5))
+    GearPWM  = math.floor(translate(result[2], 1080, 1930 , 300, 450))
+    pwm.set_pwm(0, 0,int(clamp(steerPWM,262.5, 487.5)))
+    pwm.set_pwm(1, 0,int(clamp(GearPWM, 300  , 450)))
 
 # >>>>>>>>>>>>>>>>>
 # Decode and print VESC status response
@@ -161,12 +164,12 @@ def getdata(q):
     Ctrl_Radio = [0,0,0]
 
     # Open Result txt to log data
-    # TODO: Add date time to filename
     now = datetime.datetime.now()
     currentDateTime = now.strftime("%Y%m%d-%H%M%S")
     f = open("./Results/"+currentDateTime+".txt","w+")
         # Log headers
-    f.write("current_time,tau,rpm,steering PWM,Dutycycle,P_motor,\n")
+    # time.time(),tau,response.rpm,steering,InRPM*10.0,Ctrl_Radio[1],pmotor
+    f.write("Rel_time,Abs_time,tau,rpm,steering PWM,DutyCycle,Radio_Throttle_PWM,P_motor,\n")
         # 1104, 1506, 1906 for VESC
     ser_vesc.write(pyvesc.encode(SetRPM(1000)))
 
@@ -204,8 +207,7 @@ def getdata(q):
                 q.put([cur_t,tau,response.rpm,response.avg_motor_current,vmotor])
                 #### Write to log ####
                 steering = Ctrl_Radio[0]
-                f.write("%f,%f,%f,%f,%f,%f\n" % (cur_t,tau,response.rpm,steering,InRPM*10.0,pmotor))
-                # TODO: Write absolute time to log file
+                f.write("%f,%f,%f,%f,%f,%f,%f,%f\n" % (cur_t,time.time(),tau,response.rpm,steering,InRPM*10.0,Ctrl_Radio[1],pmotor))
 
         ##### Understand Data #####
         Ctrl_Radio    = Result_Ard[:3]
