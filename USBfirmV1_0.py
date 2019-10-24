@@ -81,8 +81,8 @@ def send2PCA(pwm,result):
     # pwm.set_pwm(1, 0,clamp(GearPWM, 300  , 450))
     steerPWM = math.floor(translate(result[0], 1020, 1850 , 262.5, 487.5))
     GearPWM  = math.floor(translate(result[2], 1080, 1930 , 300, 450))
-    pwm.set_pwm(0, 0,int(clamp(steerPWM,262.5, 487.5)))
-    pwm.set_pwm(1, 0,int(clamp(GearPWM, 300  , 450)))
+    pwm.set_pwm(2, 0,int(clamp(steerPWM,262.5, 487.5)))
+    pwm.set_pwm(3, 0,int(clamp(GearPWM, 300  , 450)))
 
 # >>>>>>>>>>>>>>>>>
 # Decode and print VESC status response
